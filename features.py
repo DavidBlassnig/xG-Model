@@ -1,3 +1,56 @@
+"""
+features.py — Feature engineering for the xG model.
+
+============================================================================
+ACTIVE MODEL FEATURES (20 total, in 7 thematic groups)
+============================================================================
+
+Geometry        (3)  distance_to_goal, angle_to_goal, angle_to_goal_rad
+Body Part       (2)  is_header, is_left_foot
+Situation       (4)  situation_open_play, situation_free_kick,
+                     situation_corner, situation_other
+Preceding       (5)  preceding_cross, preceding_cutback,
+                     preceding_through_ball, preceding_high_pass,
+                     preceding_no_assist
+Goalkeeper      (3)  goalkeeper_x, goalkeeper_y,
+                     goalkeeper_distance_to_goal_center
+Pressure        (2)  n_defenders_in_cone, min_defender_distance
+Shot Lane       (1)  net_open_goal_pct
+
+============================================================================
+WHY ONLY ONE SHOT-LANE FEATURE?
+============================================================================
+
+The shot_lane group originally exposed four features computed from the 360
+freeze_frame:
+
+    pct_goal_blocked        fraction of goal blocked by field players
+    pct_goal_free           = 1 - pct_goal_blocked  (perfect anti-correlation)
+    gk_free_zone_coverage   how well the GK covers the unblocked angle
+    net_open_goal_pct       = pct_goal_free * (1 - gk_free_zone_coverage)
+
+After analysis (see report.txt and the notebook):
+
+  - pct_goal_blocked dropped: exactly anti-correlated with pct_goal_free,
+    so including both adds no information and only splits SHAP attribution
+    between two columns that say the same thing.
+
+  - pct_goal_free and gk_free_zone_coverage dropped: net_open_goal_pct
+    already integrates both signals BY CONSTRUCTION
+    (net = goal_free * (1 - gk_coverage)). Keeping the constituents adds
+    no extra signal for tree models and clutters interpretability.
+
+The retained feature, net_open_goal_pct, is the single 360-derived
+statistic that captures "what fraction of the goal is realistically
+reachable" after both field-player screening AND goalkeeper coverage are
+accounted for. It is the cleanest, most informative summary.
+
+The diagnostic columns pct_goal_blocked, pct_goal_free, and
+gk_free_zone_coverage are STILL computed inside add_shot_lane_features
+(so they remain visible in the DataFrame for debugging or visualisation),
+but they are not registered as model inputs.
+============================================================================
+"""
 import math
 
 import numpy as np
@@ -363,7 +416,13 @@ _FEATURE_COLUMNS = {
     "preceding": ["preceding_cross", "preceding_cutback", "preceding_through_ball", "preceding_high_pass", "preceding_no_assist"],
     "goalkeeper": ["goalkeeper_x", "goalkeeper_y", "goalkeeper_distance_to_goal_center"],
     "pressure": ["n_defenders_in_cone", "min_defender_distance"],
-    "shot_lane": ["pct_goal_blocked", "pct_goal_free", "gk_free_zone_coverage", "net_open_goal_pct"],
+    # See header docstring for the rationale: only net_open_goal_pct is
+    # retained because it is the combined statistic that already integrates
+    # both the field-player blocking AND the goalkeeper coverage signals
+    # (net = goal_free * (1 - gk_coverage)). pct_goal_blocked, pct_goal_free,
+    # and gk_free_zone_coverage are still computed inside the function for
+    # diagnostic purposes but are no longer fed to the model.
+    "shot_lane": ["net_open_goal_pct"],
 }
 
 

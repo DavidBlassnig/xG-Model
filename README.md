@@ -6,7 +6,7 @@ Streamlit app for exploring matches and individual shots.
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### 1. Clone & install
 
@@ -38,6 +38,8 @@ all three models, and writes artifacts to `models/` for the app.
 Runtime: ~10 minutes for the main path. Section 13 (5×10-fold CV with
 Wilcoxon test) adds 30–60 minutes and is optional.
 
+note: You'll have to load the data either way. I decided to save locally because I wanted to do more stuff with it later.
+
 ### 4. Launch the app
 
 ```bash
@@ -48,17 +50,17 @@ Open **<http://localhost:8501>**.
 
 ---
 
-## 🖥 App features
+## App features
 
 | | |
 |---|---|
 | **Sidebar** | Match picker — all games with ≥5 shots, formatted `#match_id — Team A vs Team B` |
-| **📊 Match Analysis tab** | Two pitches (one per team) showing all shots (size ∝ xG, color = goal/no goal), bar chart comparing xG totals across the 4 models vs. actual goals, sortable shot table |
-| **🎯 Single Shot tab** | Per-match shot selector. Shows pitch with freeze-frame players, all 23 feature values, and the 4 xG predictions as horizontal bars |
+| **Match Analysis tab** | Two pitches (one per team) showing all shots (size ∝ xG, color = goal/no goal), bar chart comparing xG totals across the 4 models vs. actual goals, sortable shot table |
+| **Single Shot tab** | Per-match shot selector. Shows pitch with freeze-frame players, all 23 feature values, and the 4 xG predictions as horizontal bars |
 
 ---
 
-## 📓 Notebook structure (`training.ipynb`)
+## Notebook structure (`training.ipynb`)
 
 Run sections in order:
 
@@ -88,7 +90,7 @@ Run sections in order:
 
 ---
 
-## 📁 Project structure
+## Project structure
 
 ```
 xG-model/
