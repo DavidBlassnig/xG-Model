@@ -33,7 +33,7 @@ FEATURE_SETS: dict[str, bool] = {
 # ---------------------------------------------------------------------------
 
 def add_geometry_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Distanz und Winkel zum Tor."""
+    """distance and angle to goal"""
     df["distance_to_goal"] = df.apply(lambda r: distance_to_goal(r["x"], r["y"]), axis=1)
     df["angle_to_goal"] = df.apply(lambda r: angle_to_goal(r["x"], r["y"]), axis=1)
     df["angle_to_goal_rad"] = df.apply(lambda r: angle_to_goal_rad(r["x"], r["y"]), axis=1)
@@ -41,7 +41,7 @@ def add_geometry_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_body_part_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Binäre Flags: is_header, is_left_foot."""
+    """Binary Flags: is_header, is_left_foot."""
     bp = df["shot_body_part"].fillna("")
     df["is_header"] = bp.apply(is_header).astype(int)
     df["is_left_foot"] = bp.apply(is_left_foot).astype(int)
@@ -49,7 +49,7 @@ def add_body_part_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_situation_features(df: pd.DataFrame) -> pd.DataFrame:
-    """One-Hot-Encoding der Spielsituation."""
+    """One-Hot-Encoding of game situation."""
     sit = df["shot_type"].fillna("Open Play")
     df["situation_open_play"] = (sit == "Open Play").astype(int)
     df["situation_free_kick"] = (sit == "Free Kick").astype(int)
@@ -60,14 +60,14 @@ def add_situation_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_preceding_action_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Vorhergehende Aktion via shot_key_pass_id.
+    Preceding action via shot_key_pass_id.
 
-    Erwartet vom Datenlade-Schritt angefügte Spalten mit Eigenschaften
-    des Key-Pass-Events:
+    Expects columns added by the data loading step with properties
+    of the key pass event:
       kp_cross, kp_cut_back, kp_through_ball, kp_high_pass
 
-    Schüsse ohne Key-Pass (shot_key_pass_id is NaN) erhalten
-    preceding_no_assist=1; alle anderen Flags sind 0.
+    Shots without a key pass (shot_key_pass_id is NaN) receive
+    preceding_no_assist=1; all other flags are 0.
     """
     if "shot_key_pass_id" in df.columns:
         has_kp = df["shot_key_pass_id"].notna()
@@ -151,8 +151,8 @@ def _is_teammate(p, default=True):
 
 def add_goalkeeper_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Torhüterposition aus shot.freeze_frame.
-    Fehlende Werte mit Median imputen.
+    goalkeeper position from shot.freeze_frame.
+    Missing values imputed with median.
     """
     gk_x = []
     gk_y = []
@@ -196,8 +196,8 @@ def add_goalkeeper_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_pressure_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Druck durch Gegenspieler: n_defenders_in_cone, min_defender_distance.
-    Cone: 3 Yards Öffnung in Richtung Tor.
+    Pressure from opposing players: n_defenders_in_cone, min_defender_distance.
+    Cone: 3 Yards opening in direction of goal.
     """
     n_def_in_cone = []
     min_def_dist = []
@@ -256,27 +256,27 @@ def add_pressure_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_shot_lane_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Bewertet die freie Schussbahn auf Basis der Spielerpositionen im
-    shot.freeze_frame (360°-Daten).
+    Evaluates the free shot lane based on player positions in the
+    shot.freeze_frame (360°-data).
 
-    Neue Spalten:
-    - pct_goal_blocked:      Anteil der Torfläche, der durch gegnerische
-                             Feldspieler verdeckt ist (0.0–1.0).
-    - pct_goal_free:         Anteil der Torfläche, der frei von Feldspielern
-                             ist (= 1 - pct_goal_blocked).
-    - gk_free_zone_coverage: Wie gut der Torwart die freie Zone abdeckt
-                             (0.0 = schlecht für TW, 1.0 = perfekt für TW).
-    - net_open_goal_pct:     Freie Zone, die auch der Torwart nicht abdeckt
+    New columns:
+    - pct_goal_blocked:      Fraction of the goal area blocked by opposing
+                             field players (0.0–1.0).
+    - pct_goal_free:         Fraction of the goal area free from field players
+                             (= 1 - pct_goal_blocked).
+    - gk_free_zone_coverage: How well the goalkeeper covers the free zone
+                             (0.0 = poor for TW, 1.0 = perfect for TW).
+    - net_open_goal_pct:     Open zone that the goalkeeper also fails to cover
                              (= pct_goal_free * (1 - gk_free_zone_coverage)).
 
-    Implementierungshinweise:
-    - freeze_frame ist ein dict/list im StatsBomb-Format. Feldspieler filtern:
-      freeze_frame-Einträge mit teammate=False und position != 'Goalkeeper'.
-    - Torwart separat identifizieren: teammate=False, position == 'Goalkeeper'.
-    - Fehlt freeze_frame oder ist er leer: alle vier Spalten mit np.nan füllen
-      (nicht droppen — Imputation erfolgt downstream).
-    - Koordinaten aus location-Feld jedes freeze_frame-Eintrags extrahieren.
-    - Hilfsfunktionen aus helpers importieren:
+    Implementation notes:
+    - freeze_frame is a dict/list in the StatsBomb format. Filter field players:
+      freeze_frame entries with teammate=False and position != 'Goalkeeper'.
+    - Identify goalkeeper separately: teammate=False, position == 'Goalkeeper'.
+    - If freeze_frame is missing or empty: fill all four columns with np.nan
+      (do not drop — imputation occurs downstream).
+    - Extract coordinates from the location field of each freeze_frame entry.
+    - Import helper functions from helpers:
       blocked_goal_fraction, player_blocked_angle,
       union_of_blocked_angles, goalkeeper_free_zone_coverage.
     """
@@ -369,8 +369,8 @@ _FEATURE_COLUMNS = {
 
 def build_features(df: pd.DataFrame, feature_sets: dict[str, bool] | None = None) -> pd.DataFrame:
     """
-    Hauptfunktion. Ruft alle aktiven Feature-Gruppen auf und gibt
-    den vollständigen Feature-DataFrame zurück.
+    main function. Calls all active feature groups and returns
+    the complete feature DataFrame.
     """
     active = feature_sets if feature_sets is not None else FEATURE_SETS
     for name, enabled in active.items():
@@ -380,7 +380,7 @@ def build_features(df: pd.DataFrame, feature_sets: dict[str, bool] | None = None
 
 
 def get_feature_columns(feature_sets: dict[str, bool] | None = None) -> list[str]:
-    """Gibt die aktuelle, geordnete Liste aller Feature-Spaltennamen zurück."""
+    """Returns the current, ordered list of all feature column names."""
     active = feature_sets if feature_sets is not None else FEATURE_SETS
     cols = []
     for name, enabled in active.items():
