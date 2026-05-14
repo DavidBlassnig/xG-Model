@@ -231,6 +231,8 @@ def get_feature_columns() -> list[str]:
     ...
 ```
 
+
+
 ### Neue Features hinzufügen
 
 1. Neue Funktion `add_<name>_features(df)` in `features.py` schreiben
@@ -499,5 +501,12 @@ xgb_loaded.load_model("models/xgboost.json")
 - [ ] SHAP-Analyse für Feature-Selektion nutzen
 - [ ] Professionellen xG-Vergleich in `training.ipynb` finalisieren
 - [ ] Kalibrierung mit `CalibratedClassifierCV` verbessern
-- [ ] Neues Feature: xG-Kette (Assist-Qualität)
-- [ ] Neues Feature: Spielstand zum Zeitpunkt des Schusses
+- [ ] xG-Kette (Assist-Qualität)
+- [ ] Spielstand zum Zeitpunkt des Schusses
+- [ ] `helpers.py`: `player_blocked_angle`, `union_of_blocked_angles`,
+      `blocked_goal_fraction`, `goalkeeper_free_zone_coverage` implementieren
+- [ ] `features.py`: `add_shot_lane_features` implementieren & in
+      `build_features()` + `get_feature_columns()` eintragen
+- [ ] SHAP-Analyse: Einfluss von `net_open_goal_pct` vs. Distanz/Winkel prüfen
+## NEUE FEATURES
+- shots lokal auf festplatte speichern, sodass die daten nicht nach jedem kernel restart neu geladen werden müssen, mit pickle
