@@ -1,14 +1,14 @@
-# ⚽ xG Model — Expected Goals auf StatsBomb Open Data
+# xG Model — Expected Goals on StatsBomb Open Data
 
-Random Forest, XGBoost und XGBoost-PCA Expected-Goals-Modelle, trainiert auf
-~88.000 Schüssen aus den StatsBomb Open Data. Vergleich gegen StatsBombs eigenes
-xG-Modell. Interaktive Web-App zum Erkunden einzelner Matches und Schüsse.
+Random Forest, XGBoost, and XGBoost-PCA models trained on ~88k shots from
+StatsBomb Open Data. Benchmarked against StatsBomb's own xG. Interactive
+Streamlit app for exploring matches and individual shots.
 
 ---
 
-## 🚀 Schnellstart
+## 🚀 Quickstart
 
-### 1. Repo klonen & Abhängigkeiten installieren
+### 1. Clone & install
 
 ```bash
 git clone <repo-url>
@@ -21,93 +21,88 @@ source venv/bin/activate          # Mac/Linux
 pip install -r requirements.txt
 ```
 
-### 2. StatsBomb Open Data lokal spiegeln (einmalig, ~1.5 GB)
+### 2. Mirror StatsBomb Open Data locally (one-time, ~1.5 GB)
 
 ```bash
 git clone --depth=1 https://github.com/statsbomb/open-data.git data/statsbomb
 ```
 
-`statsbombpy` liest die Daten dann direkt aus `data/statsbomb/data/` — keine API-Calls.
+`statsbombpy` reads directly from `data/statsbomb/data/` — no API calls.
 
-### 3. Modelle trainieren
+### 3. Train models
 
-Öffne `training.ipynb` in Jupyter oder VS Code und führe **alle Zellen der Reihe nach** aus.
-Das Notebook:
+Open `training.ipynb` and run all cells in order. The notebook loads ~88k
+shots (cached to `data/shots_raw.parquet`), engineers 23 features, trains
+all three models, and writes artifacts to `models/` for the app.
 
-1. Lädt ~88k Schüsse aus dem lokalen StatsBomb-Mirror (gecached als `data/shots_raw.parquet`)
-2. Engineered 23 Features
-3. Trainiert Random Forest, XGBoost und XGBoost-PCA
-4. Speichert alle Artefakte unter `models/` für die Web-App
+Runtime: ~10 minutes for the main path. Section 13 (5×10-fold CV with
+Wilcoxon test) adds 30–60 minutes and is optional.
 
-Laufzeit: ~10 Minuten für den Haupt-Pfad. Section 13 (5×10-Fold Cross-Validation
-mit Wilcoxon-Test) braucht zusätzlich 30–60 Minuten und ist optional.
-
-### 4. Web-App starten
+### 4. Launch the app
 
 ```bash
 streamlit run app.py
 ```
 
-Öffne dann **<http://localhost:8501>** im Browser.
+Open **<http://localhost:8501>**.
 
 ---
 
-## 🖥 Web-App-Features
+## 🖥 App features
 
 | | |
 |---|---|
-| **Sidebar** | Match-Auswahl: Dropdown mit allen Spielen ≥ 5 Schüssen, Format `#match_id — Team A vs Team B` |
-| **Tab "📊 Match-Analyse"** | Zwei Pitches (eines pro Team) mit allen Schüssen (Größe ∝ xG, Farbe = Tor / kein Tor), Balkendiagramm mit xG-Summen aller 4 Modelle + tatsächliche Tore, sortierbare Schuss-Detail-Tabelle |
-| **Tab "🎯 Einzelschuss"** | Pro Match einzelne Schuss-Auswahl. Zeigt Pitch mit Freeze-Frame-Spielern, alle 23 Feature-Werte, und die 4 xG-Vorhersagen als horizontale Bars |
+| **Sidebar** | Match picker — all games with ≥5 shots, formatted `#match_id — Team A vs Team B` |
+| **📊 Match Analysis tab** | Two pitches (one per team) showing all shots (size ∝ xG, color = goal/no goal), bar chart comparing xG totals across the 4 models vs. actual goals, sortable shot table |
+| **🎯 Single Shot tab** | Per-match shot selector. Shows pitch with freeze-frame players, all 23 feature values, and the 4 xG predictions as horizontal bars |
 
 ---
 
-## 📓 Notebook-Struktur (`training.ipynb`)
+## 📓 Notebook structure (`training.ipynb`)
 
-Alle Analysen sind in logisch aufeinander aufbauende Sections gegliedert.
-Sie sollten **in dieser Reihenfolge** ausgeführt werden:
+Run sections in order:
 
-| Section | Inhalt | Zweck |
-|--------:|--------|-------|
-| **1**   | Setup & Imports | Environment vorbereiten |
-| **2**   | Daten laden | Schüsse aus lokalem StatsBomb-Mirror (mit Progress-Bar), Cache in `data/shots_raw.parquet` |
-| **3**   | Schüsse filtern & bereinigen | Penalties / Eigentore raus, Zielvariable `goal`, Koordinaten extrahieren |
-| **4**   | Feature Engineering | Alle 23 Features über `features.py` bauen |
-| **5**   | Train/Test-Split | Stratifiziert 80/20 nach Tor-Rate |
-| **6**   | Modell: Random Forest | Baseline-Klassifikator |
-| **7**   | Modell: XGBoost | Gradient Boosting, gleiche Features |
-| **8**   | **Vergleich: RF + XGBoost vs. StatsBomb** | ROC-AUC, Brier, Log-Loss — die zentrale Baseline-Bewertung |
-| **9**   | Kalibrierung & Residualanalyse | Calibration Curve mit 95 %-Wilson-Konfidenzbändern, Residualstreuung pro Modell |
-| **10**  | Feature Importance (SHAP) | Globale Wichtigkeit aller Features im XGBoost |
-| **11**  | PCA — Feature-Redundanz | Korrelations-Matrix, Scree-Plot, Loadings-Heatmap — zeigt wie viele PCs nötig sind |
-| **12**  | PCA-XGBoost: 17 Komponenten | Pipeline `Standardize → PCA(17) → XGBoost`, Vergleich zu Section 8 |
-| **13**  | **Ablation: Impact der Coverage-Features** | 5 Seeds × 10-Fold Cross-Validation + **Wilcoxon Signed-Rank Test** zwischen "PCA-17" und "ohne Coverage-Features" |
-| **14**  | Deep-Dive: `net_open_goal_pct` | SHAP-Detail des wichtigsten Coverage-Features vs. Distanz / Winkel |
-| **15**  | Modelle exportieren | Speichert RF, XGBoost, XGBoost-PCA + PCA-Pipeline unter `models/` (Voraussetzung für die Web-App) |
+| Section | Content |
+|--------:|---------|
+| **1**   | Setup & imports |
+| **2**   | Load shots from local mirror (cached to `data/shots_raw.parquet`) |
+| **3**   | Filter & clean (drop penalties/own goals, extract coordinates, build `goal` target) |
+| **4**   | Feature engineering — 23 features via `features.py` |
+| **5**   | Stratified 80/20 train/test split |
+| **6**   | Random Forest baseline |
+| **7**   | XGBoost |
+| **8**   | **RF + XGBoost vs. StatsBomb** — ROC-AUC, Brier, log-loss |
+| **9**   | Calibration & residual analysis (Wilson 95% CI bands) |
+| **10**  | SHAP feature importance |
+| **11**  | PCA — correlation matrix, scree plot, loadings heatmap |
+| **12**  | PCA-XGBoost pipeline (17 components) vs. Section 8 |
+| **13**  | **Coverage-features ablation** — 5 seeds × 10-fold CV + Wilcoxon signed-rank test |
+| **14**  | Deep-dive on `net_open_goal_pct` — SHAP vs. distance/angle |
+| **15**  | Export models to `models/` (required for the app) |
 
-**Empfohlene Lese-Reihenfolge nach Interesse:**
+**Reading paths:**
 
-- Wer nur den **Modellvergleich** sehen will → Sections 6–10
-- Wer die **Coverage-Feature-Analyse** verstehen will → Sections 11–14
-- Wer die **Web-App nutzen** will → komplettes Notebook bis inkl. Section 15
+- Model comparison only → Sections 6–10
+- Coverage-feature analysis → Sections 11–14
+- Web app → run through Section 15
 
 ---
 
-## 📁 Projektstruktur
+## 📁 Project structure
 
 ```
 xG-model/
-├── README.md               ← dieses Dokument
-├── CLAUDE.md               ← projekt-interne Konventionen
+├── README.md
+├── CLAUDE.md               ← project conventions
 ├── requirements.txt
-├── app.py                  ← Streamlit Web-App
-├── training.ipynb          ← Modell-Training & Analyse-Notebook
-├── features.py             ← Feature Engineering (23 Features in 7 Gruppen)
-├── helpers.py              ← Geometrie-Hilfsfunktionen (Distanz, Winkel, Coverage)
+├── app.py                  ← Streamlit app
+├── training.ipynb          ← training & analysis notebook
+├── features.py             ← 23 features in 7 groups
+├── helpers.py              ← geometry (distance, angle, coverage)
 ├── data/
-│   ├── shots_raw.parquet   ← Cache aller Schüsse (von Notebook erzeugt)
-│   └── statsbomb/          ← StatsBomb Open Data Mirror (eigener Git-Clone)
-└── models/                 ← Vom Notebook erzeugt (Section 15)
+│   ├── shots_raw.parquet   ← shot cache (notebook output)
+│   └── statsbomb/          ← StatsBomb Open Data mirror
+└── models/                 ← notebook output (Section 15)
     ├── random_forest.pkl
     ├── xgboost.json
     ├── xgboost_pca.json
@@ -116,19 +111,19 @@ xG-model/
 
 ---
 
-## 🛠 Häufige Stolpersteine
+## 🛠 Troubleshooting
 
-| Problem | Lösung |
+| Issue | Fix |
 |---|---|
-| `STATSBOMB_DATA` Warnung beim Notebook-Start | Variable wird in Cell 1 gesetzt; achte darauf, dass `data/statsbomb/` existiert |
-| Web-App startet, zeigt aber "Modell- oder Daten-Dateien fehlen" | Erst `training.ipynb` komplett laufen lassen, mindestens bis inkl. Section 15 |
-| Section 13 dauert ewig | CV trainiert 100 XGBoost-Modelle (5 Seeds × 10 Folds × 2 Modelltypen). Du kannst sie überspringen, ohne dass die anderen Sections oder die Web-App leiden |
-| Parquet liest freeze_frame als `np.ndarray` statt `list` | `features.py` behandelt beide Typen — bei NaN-Quote 100 % auf Coverage-Features: Kernel neu starten oder `importlib.reload(features)` |
+| `STATSBOMB_DATA` warning on notebook start | Variable is set in Cell 1 — make sure `data/statsbomb/` exists |
+| App shows "model or data files missing" | Run `training.ipynb` through Section 15 first |
+| Section 13 takes forever | It trains 100 XGBoost models (5 seeds × 10 folds × 2 variants). Safe to skip |
+| Parquet reads `freeze_frame` as `np.ndarray` instead of `list` | `features.py` handles both — if Coverage features show 100% NaN, restart kernel or `importlib.reload(features)` |
 
 ---
 
-## 📚 Quellen
+## 📚 Sources
 
 - **StatsBomb Open Data**: <https://github.com/statsbomb/open-data>
-- **statsbombpy** (Python-Wrapper): <https://github.com/statsbomb/statsbombpy>
-- StatsBomb-xG: proprietäres Modell, dessen Predictions in den Open-Data-Events als `shot_statsbomb_xg` enthalten sind
+- **statsbombpy**: <https://github.com/statsbomb/statsbombpy>
+- StatsBomb's xG predictions are in the events as `shot_statsbomb_xg`
