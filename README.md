@@ -23,11 +23,11 @@ pip install -r requirements.txt
 
 ### 2. Mirror StatsBomb Open Data locally (one-time, ~1.5 GB)
 
+**YOU DO NOT HAVE TO DO THAT** , the information is saved in the parquet file in data. If you still want the data, you get it this way:
+
 ```bash
 git clone --depth=1 https://github.com/statsbomb/open-data.git data/statsbomb
 ```
-
-`statsbombpy` reads directly from `data/statsbomb/data/` — no API calls.
 
 ### 3. Train models
 
@@ -35,11 +35,7 @@ Open `training.ipynb` and run all cells in order. The notebook loads ~88k
 shots (cached to `data/shots_raw.parquet`), engineers 23 features, trains
 all three models, and writes artifacts to `models/` for the app.
 
-Runtime: ~10 minutes for the main path. Section 13.1 (20-seed
-calibration sweep) adds ~15–25 minutes; Section 13.2 (5×10-fold CV +
-Wilcoxon test) adds another 30–60 minutes. Both are optional.
-
-note: You'll have to load the data either way. I decided to save locally because I wanted to do more stuff with it later.
+Runtime: ~ 2-3 mins for everything
 
 ### 4. Launch the app
 
@@ -48,16 +44,6 @@ streamlit run app.py
 ```
 
 Open **<http://localhost:8501>**.
-
----
-
-## App features
-
-| | |
-|---|---|
-| **Sidebar** | Match picker — all games with ≥5 shots, formatted `#match_id — Team A vs Team B` |
-| **Match Analysis tab** | Two pitches (one per team) showing all shots (size ∝ xG, color = goal/no goal), bar chart comparing xG totals across the 4 models vs. actual goals, sortable shot table |
-| **Single Shot tab** | Per-match shot selector. Shows pitch with freeze-frame players, all 23 feature values, and the 4 xG predictions as horizontal bars |
 
 ---
 
@@ -121,7 +107,7 @@ xG-model/
 |---|---|
 | `STATSBOMB_DATA` warning on notebook start | Variable is set in Cell 1 — make sure `data/statsbomb/` exists |
 | App shows "model or data files missing" | Run `training.ipynb` through Section 15 first |
-| Section 13 takes forever | Section 13.1 trains 60 XGBoost models, Section 13.2 trains 100. Both are safe to skip |
+| Section 13 takes 1-2 mins | Section 13.1 trains 60 XGBoost models, Section 13.2 trains 100. Both are safe to skip |
 | Parquet reads `freeze_frame` as `np.ndarray` instead of `list` | `features.py` handles both — if Coverage features show 100% NaN, restart kernel or `importlib.reload(features)` |
 
 ---
