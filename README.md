@@ -35,8 +35,9 @@ Open `training.ipynb` and run all cells in order. The notebook loads ~88k
 shots (cached to `data/shots_raw.parquet`), engineers 23 features, trains
 all three models, and writes artifacts to `models/` for the app.
 
-Runtime: ~10 minutes for the main path. Section 13 (5×10-fold CV with
-Wilcoxon test) adds 30–60 minutes and is optional.
+Runtime: ~10 minutes for the main path. Section 13.1 (20-seed
+calibration sweep) adds ~15–25 minutes; Section 13.2 (5×10-fold CV +
+Wilcoxon test) adds another 30–60 minutes. Both are optional.
 
 note: You'll have to load the data either way. I decided to save locally because I wanted to do more stuff with it later.
 
@@ -77,8 +78,9 @@ Run sections in order:
 | **9**   | Calibration & residual analysis (Wilson 95% CI bands) |
 | **10**  | SHAP feature importance |
 | **11**  | PCA — correlation matrix, scree plot, loadings heatmap |
-| **12**  | PCA-XGBoost pipeline (17 components) vs. Section 8 |
-| **13**  | **Coverage-features ablation** — 5 seeds × 10-fold CV + Wilcoxon signed-rank test |
+| **12**  | PCA-XGBoost pipeline (18 components) vs. Section 8 |
+| **13.1**| Calibration curves averaged across 20 random train/test splits (mean ± 1σ band per model) |
+| **13.2**| **Coverage-features ablation** — 5 seeds × 10-fold CV + Wilcoxon signed-rank test |
 | **14**  | Deep-dive on `net_open_goal_pct` — SHAP vs. distance/angle |
 | **15**  | Export models to `models/` (required for the app) |
 
@@ -119,7 +121,7 @@ xG-model/
 |---|---|
 | `STATSBOMB_DATA` warning on notebook start | Variable is set in Cell 1 — make sure `data/statsbomb/` exists |
 | App shows "model or data files missing" | Run `training.ipynb` through Section 15 first |
-| Section 13 takes forever | It trains 100 XGBoost models (5 seeds × 10 folds × 2 variants). Safe to skip |
+| Section 13 takes forever | Section 13.1 trains 60 XGBoost models, Section 13.2 trains 100. Both are safe to skip |
 | Parquet reads `freeze_frame` as `np.ndarray` instead of `list` | `features.py` handles both — if Coverage features show 100% NaN, restart kernel or `importlib.reload(features)` |
 
 ---

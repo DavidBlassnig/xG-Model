@@ -239,7 +239,8 @@ def render_shot_analysis(shot, feat_vals, predictions, feature_cols):
     groups = {
         "Geometry":   ["distance_to_goal", "angle_to_goal", "angle_to_goal_rad"],
         "Body Part":  ["is_header", "is_left_foot"],
-        "Situation":  ["situation_open_play", "situation_free_kick", "situation_corner", "situation_other"],
+        "Situation":  ["situation_open_play", "situation_from_corner", "situation_from_free_kick",
+                       "situation_other", "situation_direct_free_kick"],
         "Preceding":  ["preceding_cross", "preceding_cutback", "preceding_through_ball", "preceding_high_pass", "preceding_no_assist"],
         "Goalkeeper": ["goalkeeper_x", "goalkeeper_y", "goalkeeper_distance_to_goal_center"],
         "Pressure":   ["n_defenders_in_cone", "min_defender_distance"],

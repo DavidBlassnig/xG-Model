@@ -2,13 +2,19 @@
 features.py — Feature engineering for the xG model.
 
 ============================================================================
-ACTIVE MODEL FEATURES (20 total, in 7 thematic groups)
+ACTIVE MODEL FEATURES (21 total, in 7 thematic groups)
 ============================================================================
 
 Geometry        (3)  distance_to_goal, angle_to_goal, angle_to_goal_rad
 Body Part       (2)  is_header, is_left_foot
-Situation       (4)  situation_open_play, situation_free_kick,
-                     situation_corner, situation_other
+Situation       (5)  situation_open_play, situation_from_corner,
+                     situation_from_free_kick, situation_other
+                     (based on play_pattern, NOT shot_type -- see
+                     add_situation_features for rationale)
+                     situation_direct_free_kick
+                     (separate flag for shot_type == "Free Kick" --
+                     direct free-kick shots have a notably lower goal
+                     rate than the broader "From Free Kick" play pattern)
 Preceding       (5)  preceding_cross, preceding_cutback,
                      preceding_through_ball, preceding_high_pass,
                      preceding_no_assist
@@ -102,12 +108,25 @@ def add_body_part_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_situation_features(df: pd.DataFrame) -> pd.DataFrame:
-    """One-Hot-Encoding of game situation."""
+    """One-hot encoding of the play_pattern, i.e. how the attacking
+    sequence started -- NOT shot_type. shot_type only labels the moment
+    of the shot itself ("Open Play", "Free Kick", "Corner", "Penalty",
+    "Kick Off") and treats e.g. a header-from-corner as "Open Play".
+    play_pattern instead captures the upstream context ("From Corner",
+    "From Free Kick", "Regular Play", ...) which is what carries
+    predictive signal for xG (corner-induced chaos, set-piece routine,
+    counter-attack openness)."""
+    pp = df.get("play_pattern", pd.Series("Regular Play", index=df.index)).fillna("Regular Play")
     sit = df["shot_type"].fillna("Open Play")
-    df["situation_open_play"] = (sit == "Open Play").astype(int)
-    df["situation_free_kick"] = (sit == "Free Kick").astype(int)
-    df["situation_corner"] = (sit == "From Corner").astype(int)
-    df["situation_other"] = (~sit.isin(["Open Play", "Free Kick", "From Corner"])).astype(int)
+    df["situation_open_play"]        = (pp == "Regular Play").astype(int)
+    df["situation_from_corner"]      = (pp == "From Corner").astype(int)
+    df["situation_from_free_kick"]   = (pp == "From Free Kick").astype(int)
+    df["situation_other"]            = (~pp.isin(["Regular Play", "From Corner", "From Free Kick"])).astype(int)
+    # Direct free-kick shot (kicked straight from the FK spot, not a sequence
+    # that grew out of a FK). Phi-correlation with situation_from_free_kick is
+    # ~0.44 (moderate) and the goal rate is dramatically different (~6.5% vs.
+    # ~10% overall), so the feature carries independent signal.
+    df["situation_direct_free_kick"] = (sit == "Free Kick").astype(int)
     return df
 
 
@@ -412,7 +431,8 @@ _FEATURE_GROUP_FUNCS = {
 _FEATURE_COLUMNS = {
     "geometry": ["distance_to_goal", "angle_to_goal", "angle_to_goal_rad"],
     "body_part": ["is_header", "is_left_foot"],
-    "situation": ["situation_open_play", "situation_free_kick", "situation_corner", "situation_other"],
+    "situation": ["situation_open_play", "situation_from_corner", "situation_from_free_kick",
+                  "situation_other", "situation_direct_free_kick"],
     "preceding": ["preceding_cross", "preceding_cutback", "preceding_through_ball", "preceding_high_pass", "preceding_no_assist"],
     "goalkeeper": ["goalkeeper_x", "goalkeeper_y", "goalkeeper_distance_to_goal_center"],
     "pressure": ["n_defenders_in_cone", "min_defender_distance"],

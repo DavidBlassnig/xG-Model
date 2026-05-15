@@ -29,6 +29,16 @@ Key takeaways:
   information is already integrated into net_open_goal_pct by construction
   (net = goal_free * (1 - gk_coverage)).
 
+- The situation block carries five flags (open play, from corner, from
+  free kick, other, direct free kick). The newest of these,
+  situation_direct_free_kick, flags shots where shot_type == "Free Kick"
+  -- i.e. the ball was kicked straight from the FK spot. Its phi-correlation
+  with situation_from_free_kick is only ~0.44 and the goal rate is
+  dramatically different (~6.5% vs. ~10% overall), so it adds independent
+  predictive signal. The total active feature count is now 21 (was 20),
+  and the compact PCA baseline was bumped from PCA-17 to PCA-18 to keep
+  the variance-capture ratio roughly constant.
+
 - Freeze-frame availability is excellent: 100% of the cleaned training set
   (86,662 of 86,662 shots after dropping penalties and own goals) has a
   valid shot_freeze_frame. The 1,190 raw shots without freeze-frame are
@@ -49,10 +59,6 @@ Key takeaways:
   matters MORE when the goal mouth is mostly free. A detailed
   interpretation is given in Section 6.2.
 
-- The final XGBoost model is wrapped in isotonic post-hoc calibration
-  (CalibratedClassifierCV with cv=5). The calibrated model is exported as
-  models/xgboost_calibrated.pkl and is the recommended variant for
-  downstream aggregation (per-match / per-season xG totals).
 
 
 --------------------------------------------------------------------------------
@@ -150,37 +156,38 @@ asked in the next.
      per player per season), so systematic miscalibration matters more
      than discrimination.
 
-4.3  Post-hoc isotonic calibration  (Section 9.1)
-     XGBoost is wrapped in CalibratedClassifierCV with method="isotonic"
-     and cv=5. This fits an additional monotonic regressor on top of the
-     raw XGBoost predictions, realigning them to the empirical goal rate
-     while preserving the relative ranking (and therefore ROC-AUC).
+     A robustness companion to this section lives in Section 13.1,
+     which resamples the train/test split 20 times and plots the
+     average calibration curve per model with a +/- 1 sigma band
+     across seeds. The width of that band tells us how much of any
+     observed mid-range wobble is real systematic miscalibration
+     versus simple seed-induced sampling noise.
 
-4.4  SHAP feature importance  (Section 10)
+4.3  SHAP feature importance  (Section 10)
      Tree-based SHAP values quantify how much each feature contributes
      to each individual prediction. Aggregated as mean(|SHAP|), this
      gives a robust ranking of feature importance.
 
-4.5  PCA redundancy analysis  (Section 11)
+4.4  PCA redundancy analysis  (Section 11)
      Standardizes all features and runs PCA. Identifies the effective
      dimensionality of the input and surfaces components with near-zero
      variance (a sign of exact linear dependencies between features).
      This **motivates the compact baseline in Section 12**.
 
-4.6  PCA-17 compact model  (Section 12)
-     Pipeline: StandardScaler -> PCA(17) -> XGBoost. Captures ~95% of
-     total feature variance in 17 components. This is the **strong,
+4.5  PCA-18 compact model  (Section 12)
+     Pipeline: StandardScaler -> PCA(18) -> XGBoost. Captures ~95% of
+     total feature variance in 18 components. This is the **strong,
      principled baseline** that the ablation in Section 13 compares
      against. The reason to do this BEFORE the ablation: we want the
      "with coverage" variant to be a model that has already stripped
      redundancy, so the comparison isolates the contribution of
      net_open_goal_pct rather than confounding it with PCA effects.
 
-4.7  Ablation study  (Section 13)
+4.6  Ablation study  (Section 13.2)
      The central experiment. Two XGBoost variants are trained:
-       Variant A:  Pipeline with PCA(17) on all 20 features
+       Variant A:  Pipeline with PCA(18) on all 21 features
                    (incl. net_open_goal_pct).
-       Variant B:  XGBoost on the 19 features that EXCLUDE
+       Variant B:  XGBoost on the 20 features that EXCLUDE
                    net_open_goal_pct (no PCA - the comparison is about
                    the feature, not the preprocessing).
      Both variants use identical XGBoost hyperparameters (n_estimators=
@@ -191,7 +198,7 @@ asked in the next.
      evaluations per variant. StatsBomb xG is evaluated on the same 50
      test folds as a reference.
 
-4.8  Wilcoxon signed-rank test  (Section 13, continued)
+4.7  Wilcoxon signed-rank test  (Section 13.2, continued)
      A non-parametric paired test on the 50 paired differences. Tests:
        H0:  median(Delta metric) = 0   (the two models are equivalent)
        H1:  median(Delta metric) != 0  (one model is systematically better)
@@ -199,7 +206,7 @@ asked in the next.
      preferred over a paired t-test because the distribution of paired
      differences in cross-validation is often non-normal.
 
-4.9  Deep-dive on net_open_goal_pct  (Section 14)
+4.8  Deep-dive on net_open_goal_pct  (Section 14)
      Three SHAP-based diagnostics applied specifically to this feature:
        - Global importance rank vs. distance_to_goal and angle_to_goal.
        - Pairwise SHAP correlation: is the contribution redundant with
@@ -227,18 +234,7 @@ asked in the next.
      Brier gap to the irreducible lower bound for a 10% base rate
      (~0.075) is small.
 
-5.2  Post-hoc isotonic calibration  (Section 9.1)
-
-     Expected effects of wrapping XGBoost in CalibratedClassifierCV
-     with isotonic regression:
-       - ROC-AUC essentially unchanged (isotonic is monotonic).
-       - Brier reduction of approximately 0.001 to 0.003.
-       - Log Loss reduction of similar order.
-       - Calibration curve sits tighter on the y=x diagonal, especially
-         in the mid-range (0.4 - 0.6) where the raw XGBoost typically
-         wobbles.
-
-5.3  Freeze-frame data quality
+5.2  Freeze-frame data quality
 
      Of the 88,023 raw shots in the cached parquet:
        - 86,833 (98.6%) have a populated shot_freeze_frame.
@@ -250,30 +246,30 @@ asked in the next.
      values for every shot; the median-imputation fallback is never
      activated.
 
-5.4  PCA structure  (Section 11)
+5.3  PCA structure  (Section 11)
 
-     Expected from the present feature set (20 features after dropping
+     Expected from the present feature set (21 features after dropping
      pct_goal_blocked, pct_goal_free, gk_free_zone_coverage):
        - 95% of total variance is reached at approximately 13-16 of the
          20 components.
        - At least one component has less than 0.5% of the variance,
          driven by these exact or near-exact linear dependencies:
            * angle_to_goal_rad = angle_to_goal * pi/180
-           * situation_open_play + situation_free_kick + situation_corner
-             + situation_other = 1
+           * situation_open_play + situation_from_corner +
+             situation_from_free_kick + situation_other = 1
        - Tree models ignore this redundancy entirely; the analysis
          remains useful because (a) it documents which features carry
-         no incremental information and (b) it justifies the PCA-17
+         no incremental information and (b) it justifies the PCA-18
          design.
 
-5.5  Coverage-feature contribution  (Section 13)
+5.4  Coverage-feature contribution  (Section 13.2)
 
-     The 5x10-fold paired CV produces 50 paired differences (PCA-17
+     The 5x10-fold paired CV produces 50 paired differences (PCA-18
      minus No-Coverage) per metric. Reading patterns:
 
-       Delta AUC      positive  =>  PCA-17 (with coverage) is better
-       Delta Brier    negative  =>  PCA-17 is better (lower Brier)
-       Delta LogLoss  negative  =>  PCA-17 is better (lower log loss)
+       Delta AUC      positive  =>  PCA-18 (with coverage) is better
+       Delta Brier    negative  =>  PCA-18 is better (lower Brier)
+       Delta LogLoss  negative  =>  PCA-18 is better (lower log loss)
 
      Typical orders of magnitude expected for a single 360-derived
      feature:
@@ -282,11 +278,11 @@ asked in the next.
        Delta Brier     mean approximately -0.0003 to -0.0015
        Delta LogLoss   mean approximately -0.001 to -0.005
 
-     Win rate (the fraction of folds in which PCA-17 beats the
+     Win rate (the fraction of folds in which PCA-18 beats the
      no-coverage variant) is typically 70-90% if the feature carries
      signal, and near 50% if it does not.
 
-5.6  Wilcoxon significance  (Section 13, continued)
+5.5  Wilcoxon significance  (Section 13.2, continued)
 
      With n = 50 paired folds, the Wilcoxon test has substantial
      statistical power. Interpretation rules used here:
@@ -301,12 +297,12 @@ asked in the next.
      median paired difference: a tiny effect with very low p-value is
      statistically real but practically negligible.
 
-5.7  net_open_goal_pct in isolation  (Section 14)
+5.6  net_open_goal_pct in isolation  (Section 14)
 
      The SHAP analysis on this single feature gives the most informative
      view of HOW the feature acts:
 
-       - Global rank: where it sits among 20 features by mean(|SHAP|).
+       - Global rank: where it sits among 21 features by mean(|SHAP|).
          Typically among the top 6 in a competitive xG model.
 
        - SHAP correlation with distance/angle: if |r| > 0.7, much of
@@ -408,7 +404,7 @@ gk_free_zone_coverage) are diagnostic columns only. This streamlining:
 7.  LIMITATIONS
 --------------------------------------------------------------------------------
 
-- Stratified CV (Section 13) preserves the goal rate but not the match
+- Stratified CV (Section 13.2) preserves the goal rate but not the match
   structure. Shots from the same match can appear in train and test
   folds, which is a mild form of leakage. A GroupKFold by match_id
   would be cleaner and is documented in the notebook commentary as a
@@ -418,7 +414,7 @@ gk_free_zone_coverage) are diagnostic columns only. This streamlining:
   instant the shot is taken and ignores trajectories of defenders'
   approach, which can matter for high-velocity shots.
 
-- The PCA-17 design choice is one specific dimensional bottleneck;
+- The PCA-18 design choice is one specific dimensional bottleneck;
   results could shift modestly with 14 or 20 components.
 
 - StatsBomb's published xG is a proprietary engineering target.
@@ -452,16 +448,15 @@ high-quality shot regime where xG precision matters most.
 The combined evidence from:
   - SHAP importance (Section 10) for global ranking,
   - PCA redundancy (Section 11) for internal dependencies,
-  - 5x10-fold cross-validation (Section 13) for predictive contribution,
-  - Wilcoxon signed-rank test (Section 13) for statistical significance,
+  - 5x10-fold cross-validation (Section 13.2) for predictive contribution,
+  - Wilcoxon signed-rank test (Section 13.2) for statistical significance,
   - SHAP dependence analysis (Section 14) for the value-conditional
     impact,
 gives a more complete picture than any single metric would.
 
 The feature set has been streamlined (only net_open_goal_pct remains as
-a 360-derived model input), the XGBoost model has been isotonically
-calibrated, and the feature-availability concern is empirically resolved
-(100% freeze-frame coverage on the cleaned dataset). The pipeline is
+a 360-derived model input) and the feature-availability concern is
+empirically resolved (100% freeze-frame coverage on the cleaned dataset). The pipeline is
 ready for production use through the web app (streamlit run app.py).
 
 
