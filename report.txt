@@ -458,8 +458,3 @@ The feature set has been streamlined (only net_open_goal_pct remains as
 a 360-derived model input) and the feature-availability concern is
 empirically resolved (100% freeze-frame coverage on the cleaned dataset). The pipeline is
 ready for production use through the web app (streamlit run app.py).
-
-
-================================================================================
-                                END OF REPORT
-================================================================================
